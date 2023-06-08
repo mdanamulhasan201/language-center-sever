@@ -24,6 +24,32 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    const classCollection = client.db("languageDb").collection("classes");
+    const instructorCollection = client
+      .db("languageDb")
+      .collection("instructor");
+    const cartCollection = client.db("languageDb").collection("carts");
+
+    // classes data
+    app.get("/classes", async (req, res) => {
+      const result = await classCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Instructor data
+    app.get("/instructor", async (req, res) => {
+      const result = await instructorCollection.find().toArray();
+      res.send(result);
+    });
+
+    // cart
+    app.post("/carts", async (req, res) => {
+      const classs = req.body;
+      console.log(classs);
+      const result = await cartCollection.insertOne(classs);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
@@ -31,7 +57,7 @@ async function run() {
     );
   } finally {
     // Ensures that the client will close when you finish/error
-    await client.close();
+    // await client.close();
   }
 }
 run().catch(console.dir);
