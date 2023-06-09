@@ -24,11 +24,54 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    const userCollection = client.db("languageDb").collection("user");
     const classCollection = client.db("languageDb").collection("classes");
     const instructorCollection = client
       .db("languageDb")
       .collection("instructor");
     const cartCollection = client.db("languageDb").collection("carts");
+
+    // user related api
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user already exists" });
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // instructor
+    app.patch("/users/instructor/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: "instructor",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    // admin
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
     // classes data
     app.get("/classes", async (req, res) => {
@@ -55,7 +98,6 @@ async function run() {
 
     app.post("/carts", async (req, res) => {
       const classs = req.body;
-      console.log(classs);
       const result = await cartCollection.insertOne(classs);
       res.send(result);
     });
