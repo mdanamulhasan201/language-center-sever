@@ -59,8 +59,33 @@ async function run() {
       res.send({ token });
     });
 
+    // Warning : use verify JWt before using verifyAdmin
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+
     // user related api
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyJWT, verifyAdmin, verifyInstructor, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
