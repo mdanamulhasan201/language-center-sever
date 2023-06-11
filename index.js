@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -46,10 +47,11 @@ async function run() {
     await client.connect();
     const userCollection = client.db("languageDb").collection("user");
     const classCollection = client.db("languageDb").collection("classes");
-    const instructorCollection = client
-      .db("languageDb")
-      .collection("instructor");
+    // const instructorCollection = client
+    //   .db("languageDb")
+    //   .collection("instructor");
     const cartCollection = client.db("languageDb").collection("carts");
+    const paymentCollection = client.db("languageDb").collection("payments");
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -59,57 +61,10 @@ async function run() {
       res.send({ token });
     });
 
-    // // Warning : use verify JWt before using verifyAdmin
-
-    // const verifyAdmin = async (req, res, next) => {
-    //   const email = req.decoded.email;
-    //   const query = { email: email };
-    //   const user = await userCollection.findOne(query);
-    //   if (user?.role !== "admin") {
-    //     return res
-    //       .status(403)
-    //       .send({ error: true, message: "forbidden message" });
-    //   }
-    //   next();
-    // };
-    // const verifyInstructor = async (req, res, next) => {
-    //   const email = req.decoded.email;
-    //   const query = { email: email };
-    //   const user = await userCollection.findOne(query);
-    //   if (user?.role !== "instructor") {
-    //     return res
-    //       .status(403)
-    //       .send({ error: true, message: "forbidden message" });
-    //   }
-    //   next();
-    // };
-
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await userCollection.findOne(query);
-      // if (!user) {
-      //   return res
-      //     .status(403)
-      //     .send({ error: true, message: "Forbidden: User not found" });
-      // }
-      if (user?.role !== "admin") {
-        return res
-          .status(403)
-          .send({ error: true, message: "Forbidden: Admin access required" });
-      }
-      next();
-    };
-
     const verifyInstructor = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email: email };
       const user = await userCollection.findOne(query);
-      // if (!user) {
-      //   return res
-      //     .status(403)
-      //     .send({ error: true, message: "Forbidden: User not found" });
-      // }
       if (user?.role !== "instructor") {
         return res.status(403).send({
           error: true,
@@ -119,12 +74,37 @@ async function run() {
       next();
     };
 
+    // Warning: use verifyJWT before using verifyAdmin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+
+    app.patch("classes/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedStatus = {
+        $set: {
+          status: "deny",
+        },
+      };
+
+      const result = await classCollection.updateOne(filter, updatedStatus);
+      res.send(result);
+    });
+
     // user related api
     app.get(
       "/users",
-      verifyJWT,
-      verifyAdmin,
-      verifyInstructor,
+      // verifyJWT,
+      // verifyAdmin,
       async (req, res) => {
         const result = await userCollection.find().toArray();
         res.send(result);
@@ -206,11 +186,17 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/classes", verifyJWT, verifyInstructor, async (req, res) => {
-      const newItem = req.body;
-      const result = await classCollection.insertOne(newItem);
-      res.send(result);
-    });
+    app.post(
+      "/classes",
+      verifyJWT,
+      verifyInstructor,
+      verifyInstructor,
+      async (req, res) => {
+        const newItem = req.body;
+        const result = await classCollection.insertOne(newItem);
+        res.send(result);
+      }
+    );
 
     // cart
     app.get("/carts", verifyJWT, async (req, res) => {
@@ -239,6 +225,34 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await cartCollection.deleteOne(query);
       res.send(result);
+    });
+
+    //*********crate  payments*******
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const { price } = req.body;
+
+      const amount = price * 100;
+      // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // payment related api
+    app.post("/payments", verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = paymentCollection.insertOne(payment);
+      const query = {
+        _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) },
+      };
+      const deleteResult = await cartCollection.deleteMany(query);
+      res.send({  insertResult, deleteResult });
     });
 
     // Send a ping to confirm a successful connection
