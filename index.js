@@ -123,6 +123,14 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+    
+
     // check admin
     app.get("/users/admin/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
@@ -186,17 +194,17 @@ async function run() {
       res.send(result);
     });
 
-    app.post(
-      "/classes",
-      verifyJWT,
-      verifyInstructor,
-      verifyInstructor,
-      async (req, res) => {
-        const newItem = req.body;
-        const result = await classCollection.insertOne(newItem);
-        res.send(result);
-      }
-    );
+    app.post("/classes", verifyJWT, verifyInstructor, async (req, res) => {
+      const newItem = req.body;
+      const result = await classCollection.insertOne(newItem);
+      res.send(result);
+    });
+
+    app.get("/classes/:email", async (req, res) => {
+      const email = req.params.email;
+      const classes = await classCollection.find({ email: email }).toArray();
+      res.send(classes);
+    });
 
     // cart
     app.get("/carts", verifyJWT, async (req, res) => {
@@ -252,7 +260,38 @@ async function run() {
         _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) },
       };
       const deleteResult = await cartCollection.deleteMany(query);
-      res.send({  insertResult, deleteResult });
+      res.send({ insertResult, deleteResult });
+    });
+
+    app.get("/payment/:email", async (req, res) => {
+      const email = req.params.email;
+
+      try {
+        const result = await paymentCollection.find({ email: email }).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching payment data:", error);
+        res
+          .status(500)
+          .json({ error: "An error occurred while fetching payment data" });
+      }
+    });
+
+    // payment success
+    app.get("/payment/:email", async (req, res) => {
+      const email = req.params.email;
+
+      try {
+        const result = await paymentCollection
+          .find({ email: email, status: "success" })
+          .toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching payment data:", error);
+        res
+          .status(500)
+          .json({ error: "An error occurred while fetching payment data" });
+      }
     });
 
     // Send a ping to confirm a successful connection
