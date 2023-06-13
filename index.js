@@ -87,18 +87,18 @@ async function run() {
       next();
     };
 
-    app.patch("classes/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedStatus = {
-        $set: {
-          status: "deny",
-        },
-      };
+    // app.patch("classes/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const filter = { _id: new ObjectId(id) };
+    //   const updatedStatus = {
+    //     $set: {
+    //       status: "deny",
+    //     },
+    //   };
 
-      const result = await classCollection.updateOne(filter, updatedStatus);
-      res.send(result);
-    });
+    //   const result = await classCollection.updateOne(filter, updatedStatus);
+    //   res.send(result);
+    // });
 
     // user related api
     app.get(
