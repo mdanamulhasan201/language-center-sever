@@ -115,12 +115,24 @@ async function run() {
 
 
 
-app.post('/classes/:id', async(req, res)=>{
+app.patch('/classes/:id', async(req, res)=>{
   const id = req.params.id;
   const filter = {_id: new ObjectId(id)}
   const updatedStatus ={
     $set: {
       status: 'deny'
+    }
+    
+  }
+  const result = await classCollection.updateOne(filter, updatedStatus);
+  res.send(result)
+})
+app.patch('/classess/:id', async(req, res)=>{
+  const id = req.params.id;
+  const filter = {_id: new ObjectId(id)}
+  const updatedStatus ={
+    $set: {
+      status: 'approved'
     }
     
   }
